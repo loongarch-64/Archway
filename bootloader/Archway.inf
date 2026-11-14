@@ -1,0 +1,22 @@
+
+## @file
+# SPDX-License-Identifier: MulanPSL-2.0
+##
+
+[Defines]
+  INF_VERSION    = 0x00010005
+  BASE_NAME      = Archway
+  FILE_GUID      = 21484328-20FD-4FB9-9C31-AE9342B1F312
+  MODULE_TYPE    = UEFI_APPLICATION
+  VERSION_STRING = 0.1
+  ENTRY_POINT    = UefiMain
+
+[Sources]
+  src/main.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiLib
