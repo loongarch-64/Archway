@@ -54,17 +54,22 @@ output_status(struct efi_system_table *system_table, const char *message, efi_st
 
 static efi_status
 output_descriptor(
-    struct efi_system_table *system_table,
-    const struct efi_memory_descriptor *descriptor
+    struct efi_system_table *system_table, const struct efi_memory_descriptor *descriptor
 ) {
     uint16_t line[128];
     size_t length = 0;
 
-    if (!append_ascii(line, sizeof(line) / sizeof(line[0]), &length, memory_type_name(descriptor->type))
+    if (!append_ascii(
+            line, sizeof(line) / sizeof(line[0]), &length, memory_type_name(descriptor->type)
+        )
         || !append_ascii(line, sizeof(line) / sizeof(line[0]), &length, " start=0x")
-        || !append_hex(line, sizeof(line) / sizeof(line[0]), &length, descriptor->physical_start, 16)
+        || !append_hex(
+            line, sizeof(line) / sizeof(line[0]), &length, descriptor->physical_start, 16
+        )
         || !append_ascii(line, sizeof(line) / sizeof(line[0]), &length, " pages=")
-        || !append_decimal(line, sizeof(line) / sizeof(line[0]), &length, descriptor->number_of_pages)
+        || !append_decimal(
+            line, sizeof(line) / sizeof(line[0]), &length, descriptor->number_of_pages
+        )
         || !append_ascii(line, sizeof(line) / sizeof(line[0]), &length, " attr=0x")
         || !append_hex(line, sizeof(line) / sizeof(line[0]), &length, descriptor->attribute, 16)
         || !append_ascii(line, sizeof(line) / sizeof(line[0]), &length, "\r\n")) {
@@ -89,11 +94,7 @@ print_memory_map(struct efi_system_table *system_table) {
     }
 
     status = system_table->boot_services->get_memory_map(
-        &memory_map_size,
-        NULL,
-        &map_key,
-        &descriptor_size,
-        &descriptor_version
+        &memory_map_size, NULL, &map_key, &descriptor_size, &descriptor_version
     );
     if (status != EFI_BUFFER_TOO_SMALL) {
         output_status(system_table, "GetMemoryMap sizing failed", status);
@@ -108,8 +109,7 @@ print_memory_map(struct efi_system_table *system_table) {
         if (descriptor_size == 0) {
             descriptor_size = sizeof(*memory_map);
         }
-        if (descriptor_size < sizeof(*memory_map)
-            || descriptor_size > ((size_t)-1) / 8) {
+        if (descriptor_size < sizeof(*memory_map) || descriptor_size > ((size_t)-1) / 8) {
             output_status(system_table, "Invalid memory-map descriptor size", EFI_LOAD_ERROR);
             return EFI_LOAD_ERROR;
         }
@@ -121,11 +121,7 @@ print_memory_map(struct efi_system_table *system_table) {
         }
         buffer_size = memory_map_size + slack;
 
-        status = system_table->boot_services->allocate_pool(
-            EFI_LOADER_DATA,
-            buffer_size,
-            &buffer
-        );
+        status = system_table->boot_services->allocate_pool(EFI_LOADER_DATA, buffer_size, &buffer);
         if (EFI_ERROR(status)) {
             output_status(system_table, "Memory-map allocation failed", status);
             return status;
@@ -134,11 +130,7 @@ print_memory_map(struct efi_system_table *system_table) {
         memory_map = buffer;
         memory_map_size = buffer_size;
         status = system_table->boot_services->get_memory_map(
-            &memory_map_size,
-            memory_map,
-            &map_key,
-            &descriptor_size,
-            &descriptor_version
+            &memory_map_size, memory_map, &map_key, &descriptor_size, &descriptor_version
         );
         if (status != EFI_BUFFER_TOO_SMALL) {
             break;

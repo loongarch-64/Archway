@@ -31,7 +31,8 @@ EFI_CFLAGS := \
 	-mabi=lp64s \
 	-march=loongarch64 \
 	-msoft-float \
-	-I$(PICOEFI_DIR)/include
+	-I$(PICOEFI_DIR)/include \
+	-I../include
 
 EFI_LDFLAGS := \
 	-nostdlib \
@@ -46,6 +47,7 @@ EFI_LDFLAGS := \
 	-Wl,-T,$(PICOEFI_DIR)/src/loongarch64/link_script.lds
 
 .PHONY: all run clean FORCE
+.PHONY: kernel
 
 .DELETE_ON_ERROR:
 
@@ -53,8 +55,6 @@ all: $(EFI_FILE)
 
 -include $(BUILD_DIR)/*.d
 
-# Record effective commands, preserving timestamps when the configuration is unchanged.
-# Quote single quotes in overrides before passing them to the shell.
 quote = '$(subst ','"'"',$(1))'
 COMPILE_COMMAND := $(CC) $(EFI_CFLAGS)
 LINK_COMMAND := $(CC) $(EFI_LD_DRIVER_FLAGS) $(EFI_CFLAGS) $(EFI_LDFLAGS)
@@ -77,7 +77,33 @@ $(BUILD_DIR)/copy.config: FORCE
 	@printf '%s\n' $(call quote,$(COPY_COMMAND)) > $@.tmp
 	@cmp -s $@.tmp $@ && rm $@.tmp || mv $@.tmp $@
 
-$(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o: $(BUILD_DIR)/compile.config
+$(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o $(BUILD_DIR)/handoff.o $(BUILD_DIR)/transition.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/elf.o $(BUILD_DIR)/paging.o: $(BUILD_DIR)/compile.config
+
+kernel:
+	$(MAKE) -C ../archway all
+
+../archway/build/archway.elf: kernel
+	@test -f $@
+
+$(BUILD_DIR)/paging.o: src/paging.c src/paging.h $(PICOEFI_STAMP) Makefile
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD_DIR)/elf.o: src/elf.c src/elf.h $(PICOEFI_STAMP) Makefile
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD_DIR)/kernel.o: src/kernel.c src/kernel.h $(PICOEFI_STAMP) Makefile
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD_DIR)/handoff.o: src/handoff.c $(PICOEFI_STAMP) Makefile
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD_DIR)/transition.o: src/handoff.S Makefile
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
 
 $(BUILD_DIR)/main.o: src/main.c $(PICOEFI_STAMP) Makefile
 	mkdir -p $(BUILD_DIR)
@@ -91,7 +117,6 @@ $(BUILD_DIR)/strhlp.o: src/strhlp.c src/strhlp.h Makefile
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
 
-# Compiler-emitted memory calls must resolve to these routines even with LTO.
 $(BUILD_DIR)/string.o: src/string.c src/string.h Makefile
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(EFI_CFLAGS) -fno-lto -MMD -MP -c $< -o $@
@@ -104,8 +129,8 @@ $(BUILD_DIR)/reloc.o: $(PICOEFI_DIR)/src/loongarch64/reloc.c $(PICOEFI_STAMP) Ma
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
 
-$(BUILD_DIR)/Archway.elf: $(BUILD_DIR)/link.config $(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o $(PICOEFI_DIR)/src/loongarch64/link_script.lds Makefile
-	$(CC) $(EFI_LD_DRIVER_FLAGS) $(EFI_CFLAGS) $(EFI_LDFLAGS) $(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o -o $@
+$(BUILD_DIR)/Archway.elf: $(BUILD_DIR)/link.config $(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o $(BUILD_DIR)/handoff.o $(BUILD_DIR)/transition.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/elf.o $(BUILD_DIR)/paging.o $(PICOEFI_DIR)/src/loongarch64/link_script.lds Makefile
+	$(CC) $(EFI_LD_DRIVER_FLAGS) $(EFI_CFLAGS) $(EFI_LDFLAGS) $(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o $(BUILD_DIR)/handoff.o $(BUILD_DIR)/transition.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/elf.o $(BUILD_DIR)/paging.o -o $@
 
 $(EFI_FILE): $(BUILD_DIR)/Archway.elf $(BUILD_DIR)/copy.config
 	$(OBJCOPY) -O binary $< $@
@@ -114,7 +139,11 @@ $(EFI_BOOT): $(EFI_FILE)
 	mkdir -p $(dir $@)
 	cp $< $@
 
-run: $(EFI_BOOT)
+$(BUILD_DIR)/esp/archway.elf: ../archway/build/archway.elf
+	mkdir -p $(dir $@)
+	cp $< $@
+
+run: $(EFI_BOOT) $(BUILD_DIR)/esp/archway.elf
 	test -f $(FIRMWARE) || { echo "Run 'make download-required' from the repository root first."; exit 1; }
 	qemu-system-loongarch64 -m 2G -M virt -cpu la464 -bios $(FIRMWARE) -serial stdio -device ramfb -drive file=fat:rw:$(BUILD_DIR)/esp
 

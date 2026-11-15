@@ -26,18 +26,11 @@ append_ascii(uint16_t *buffer, size_t capacity, size_t *length, const char *text
 }
 
 bool
-append_hex(
-    uint16_t *buffer,
-    size_t capacity,
-    size_t *length,
-    uint64_t value,
-    size_t digits
-) {
+append_hex(uint16_t *buffer, size_t capacity, size_t *length, uint64_t value, size_t digits) {
     static const char hex_digits[] = "0123456789abcdef";
 
-    if (buffer == NULL || length == NULL || *length >= capacity || digits > 16
-        || digits == 0 || digits > capacity - *length - 1
-        || (digits < 16 && (value >> (digits * 4)) != 0)) {
+    if (buffer == NULL || length == NULL || *length >= capacity || digits > 16 || digits == 0
+        || digits > capacity - *length - 1 || (digits < 16 && (value >> (digits * 4)) != 0)) {
         return false;
     }
 
@@ -51,12 +44,7 @@ append_hex(
 }
 
 bool
-append_decimal(
-    uint16_t *buffer,
-    size_t capacity,
-    size_t *length,
-    uint64_t value
-) {
+append_decimal(uint16_t *buffer, size_t capacity, size_t *length, uint64_t value) {
     uint16_t reversed[20];
     size_t count = 0;
 

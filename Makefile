@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MulanPSL-2.0
 
+.DEFAULT_GOAL := all
+
 FIRMWARE_DIR := firmware
 FIRMWARE     := $(FIRMWARE_DIR)/QEMU_EFI.fd
 FIRMWARE_URL := https://raw.githubusercontent.com/loongson/Firmware/main/LoongArchVirtMachine/QEMU_EFI.fd
@@ -10,9 +12,19 @@ PICOEFI_ARCHIVE := third_party/PicoEFI-$(PICOEFI_VERSION).tar.gz
 PICOEFI_URL     := https://codeload.github.com/PicoEFI/PicoEFI/tar.gz/$(PICOEFI_VERSION)
 PICOEFI_STAMP   := $(PICOEFI_DIR)/.downloaded
 
-.PHONY: all download-required run clean
+CLANG_FORMAT ?= clang-format
+FORMAT_FILES := $(wildcard archway/src/*.c archway/src/*.h bootloader/src/*.c bootloader/src/*.h include/archway/*.h)
+
+.PHONY: all download-required run clean format format-check
+
+format:
+	$(CLANG_FORMAT) -i $(FORMAT_FILES)
+
+format-check:
+	$(CLANG_FORMAT) --dry-run --Werror $(FORMAT_FILES)
 
 all: $(PICOEFI_STAMP)
+	$(MAKE) -C archway all
 	$(MAKE) -C bootloader all
 
 download-required: $(FIRMWARE) $(PICOEFI_STAMP)
@@ -36,4 +48,5 @@ run: download-required
 	$(MAKE) -C bootloader run
 
 clean:
+	$(MAKE) -C archway clean
 	$(MAKE) -C bootloader clean
