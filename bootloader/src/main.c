@@ -5,19 +5,18 @@
  * @brief Bootloader's entry point.
  */
 
-#include <Uefi.h>
-#include <Library/UefiLib.h>
+#include <efi.h>
 
-EFI_STATUS
-EFIAPI
-UefiMain(
-    IN EFI_HANDLE ImageHandle,
-    IN EFI_SYSTEM_TABLE *SystemTable
-) {
-    (VOID)ImageHandle;
-    (VOID)SystemTable;
+efi_status
+efi_main(efi_handle image_handle, struct efi_system_table *system_table) {
+    (void)image_handle;
 
-    Print(L"Hheelllloo..\r\n");
+    system_table->con_out->output_string(
+        system_table->con_out,
+        L"Hheelllloo..\r\n"
+    );
+
+    for (;;);
 
     return EFI_SUCCESS;
 }
