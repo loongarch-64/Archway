@@ -45,26 +45,69 @@ EFI_LDFLAGS := \
 	-Wl,-m,elf64loongarch \
 	-Wl,-T,$(PICOEFI_DIR)/src/loongarch64/link_script.lds
 
-.PHONY: all run clean
+.PHONY: all run clean FORCE
+
+.DELETE_ON_ERROR:
 
 all: $(EFI_FILE)
 
+-include $(BUILD_DIR)/*.d
+
+# Record effective commands, preserving timestamps when the configuration is unchanged.
+# Quote single quotes in overrides before passing them to the shell.
+quote = '$(subst ','"'"',$(1))'
+COMPILE_COMMAND := $(CC) $(EFI_CFLAGS)
+LINK_COMMAND := $(CC) $(EFI_LD_DRIVER_FLAGS) $(EFI_CFLAGS) $(EFI_LDFLAGS)
+COPY_COMMAND := $(OBJCOPY)
+
+FORCE:
+
+$(BUILD_DIR)/compile.config: FORCE
+	@mkdir -p $(BUILD_DIR)
+	@printf '%s\n' $(call quote,$(COMPILE_COMMAND)) > $@.tmp
+	@cmp -s $@.tmp $@ && rm $@.tmp || mv $@.tmp $@
+
+$(BUILD_DIR)/link.config: FORCE
+	@mkdir -p $(BUILD_DIR)
+	@printf '%s\n' $(call quote,$(LINK_COMMAND)) > $@.tmp
+	@cmp -s $@.tmp $@ && rm $@.tmp || mv $@.tmp $@
+
+$(BUILD_DIR)/copy.config: FORCE
+	@mkdir -p $(BUILD_DIR)
+	@printf '%s\n' $(call quote,$(COPY_COMMAND)) > $@.tmp
+	@cmp -s $@.tmp $@ && rm $@.tmp || mv $@.tmp $@
+
+$(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o: $(BUILD_DIR)/compile.config
+
 $(BUILD_DIR)/main.o: src/main.c $(PICOEFI_STAMP) Makefile
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) -c $< -o $@
+	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD_DIR)/mm.o: src/mm.c src/strhlp.h $(PICOEFI_STAMP) Makefile
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD_DIR)/strhlp.o: src/strhlp.c src/strhlp.h Makefile
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
+
+# Compiler-emitted memory calls must resolve to these routines even with LTO.
+$(BUILD_DIR)/string.o: src/string.c src/string.h Makefile
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(EFI_CFLAGS) -fno-lto -MMD -MP -c $< -o $@
 
 $(BUILD_DIR)/entry.o: $(PICOEFI_DIR)/src/loongarch64/entry.S $(PICOEFI_STAMP) Makefile
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) -c $< -o $@
+	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
 
 $(BUILD_DIR)/reloc.o: $(PICOEFI_DIR)/src/loongarch64/reloc.c $(PICOEFI_STAMP) Makefile
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) -c $< -o $@
+	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
 
-$(BUILD_DIR)/Archway.elf: $(BUILD_DIR)/main.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o $(PICOEFI_DIR)/src/loongarch64/link_script.lds Makefile
-	$(CC) $(EFI_LD_DRIVER_FLAGS) $(EFI_CFLAGS) $(EFI_LDFLAGS) $(BUILD_DIR)/main.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o -o $@
+$(BUILD_DIR)/Archway.elf: $(BUILD_DIR)/link.config $(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o $(PICOEFI_DIR)/src/loongarch64/link_script.lds Makefile
+	$(CC) $(EFI_LD_DRIVER_FLAGS) $(EFI_CFLAGS) $(EFI_LDFLAGS) $(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o -o $@
 
-$(EFI_FILE): $(BUILD_DIR)/Archway.elf
+$(EFI_FILE): $(BUILD_DIR)/Archway.elf $(BUILD_DIR)/copy.config
 	$(OBJCOPY) -O binary $< $@
 
 $(EFI_BOOT): $(EFI_FILE)
