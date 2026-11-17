@@ -40,6 +40,7 @@ struct archway_boot_info {
 
     const struct archway_memory_region *memory_regions;
     uint64_t memory_region_count;
+    uint64_t kernel_physical_base;
 };
 
 #endif

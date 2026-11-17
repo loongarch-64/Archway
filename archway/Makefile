@@ -5,9 +5,10 @@ LLD ?= lld
 BUILD_DIR := build
 KERNEL := $(BUILD_DIR)/archway.elf
 LINKER_SCRIPT := $(BUILD_DIR)/linker.ld
-SOURCES := $(shell find src -type f \( -name '*.c' -o -name '*.S' \))
+SOURCES := $(shell find src -type f \( -name '*.c' -o -name '*.S' -o -name '*.s' \))
 OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(filter %.c,$(SOURCES))) \
-	$(patsubst src/%.S,$(BUILD_DIR)/%.o,$(filter %.S,$(SOURCES)))
+	$(patsubst src/%.S,$(BUILD_DIR)/%.S.o,$(filter %.S,$(SOURCES))) \
+	$(patsubst src/%.s,$(BUILD_DIR)/%.s.o,$(filter %.s,$(SOURCES)))
 CC := $(CLANG) --target=loongarch64-unknown-none-elf
 KERNEL_CFLAGS := \
 	-O2 -Wall -Wextra -std=gnu11 \
@@ -22,9 +23,13 @@ all: $(KERNEL)
 
 -include $(OBJECTS:.o=.d)
 
-$(BUILD_DIR)/%.o: src/%.S Makefile
+$(BUILD_DIR)/%.S.o: src/%.S Makefile
 	mkdir -p $(dir $@)
 	$(CC) $(KERNEL_CFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD_DIR)/%.s.o: src/%.s Makefile
+	mkdir -p $(dir $@)
+	$(CC) -march=loongarch64 -mabi=lp64s -c $< -o $@
 
 $(BUILD_DIR)/%.o: src/%.c Makefile
 	mkdir -p $(dir $@)

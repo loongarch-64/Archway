@@ -12,11 +12,8 @@
 #include <archway/memory_layout.h>
 #include <stdbool.h>
 
-_Noreturn void enter_kernel(
-    efi_physical_address root,
-    uint64_t entry,
-    const struct archway_boot_info *boot_info
-);
+_Noreturn void
+enter_kernel(efi_physical_address root, uint64_t entry, const struct archway_boot_info *boot_info);
 
 static uint32_t
 archway_memory_type(uint32_t type) {
@@ -165,6 +162,7 @@ boot_kernel(efi_handle image, struct efi_system_table *table) {
     boot_info->version = ARCHWAY_BOOT_INFO_VERSION;
     boot_info->size = sizeof(*boot_info);
     boot_info->acpi_rsdp = to_hhdm(find_acpi_rsdp(table));
+    boot_info->kernel_physical_base = kernel.physical;
 
     status = bs->get_memory_map(&size, NULL, &key, &stride, &version);
     if (status != EFI_BUFFER_TOO_SMALL) {

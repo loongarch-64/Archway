@@ -32,7 +32,7 @@ enter_kernel:
 
     csrwr $zero, LOONGARCH_CSR_TLBRERA
     csrwr $zero, LOONGARCH_CSR_ASID
-    csrwr $zero, LOONGARCH_CSR_PGDL /* no user mappings. */
+    csrwr $zero, LOONGARCH_CSR_PGDL /* the kernel creates its lower-half root on demand. */
     csrwr $a0, LOONGARCH_CSR_PGDH /* four-level kernel page table. */
     csrwr $zero, LOONGARCH_CSR_PWCL /* manual refill. software walker. */
     csrwr $zero, LOONGARCH_CSR_PWCH
@@ -68,23 +68,43 @@ tlb_refill:
     csrwr $t0, LOONGARCH_CSR_TLBRSAVE
     csrwr $t1, LOONGARCH_CSR_SAVE0
     csrwr $t2, LOONGARCH_CSR_SAVE1
-    csrrd $t0, LOONGARCH_CSR_TLBRBADV
-    bge $t0, $zero, .Lrefill_fault
-    csrrd $t0, LOONGARCH_CSR_PGDH
+    /* PGD follows TLBRBADV and selects PGDL or PGDH for the refill */
+    csrrd $t0, LOONGARCH_CSR_PGD
+    beqz $t0, .Lrefill_fault
     csrrd $t1, LOONGARCH_CSR_TLBRBADV
     bstrpick.d $t1, $t1, (PT_L3_SHIFT + PT_INDEX_BITS - 1), PT_L3_SHIFT
     slli.d $t1, $t1, PT_ENTRY_SHIFT
     ldx.d $t0, $t0, $t1
+    beqz $t0, .Lrefill_fault
+    andi $t2, $t0, 0x40 /* directory bit 6 marks an unsupported huge page */
+    beqz $t2, 1f
+    b .Lrefill_fault
+1:
+    /* check HUGE and then strip PDE_OWNED 
+       and all other low directory bits */
+    bstrins.d $t0, $zero, (PAGE_SHIFT - 1), 0
     beqz $t0, .Lrefill_fault
     csrrd $t1, LOONGARCH_CSR_TLBRBADV
     bstrpick.d $t1, $t1, (PT_L2_SHIFT + PT_INDEX_BITS - 1), PT_L2_SHIFT
     slli.d $t1, $t1, PT_ENTRY_SHIFT
     ldx.d $t0, $t0, $t1
     beqz $t0, .Lrefill_fault
+    andi $t2, $t0, 0x40
+    beqz $t2, 1f
+    b .Lrefill_fault
+1:
+    bstrins.d $t0, $zero, (PAGE_SHIFT - 1), 0
+    beqz $t0, .Lrefill_fault
     csrrd $t1, LOONGARCH_CSR_TLBRBADV
     bstrpick.d $t1, $t1, (PT_L1_SHIFT + PT_INDEX_BITS - 1), PT_L1_SHIFT
     slli.d $t1, $t1, PT_ENTRY_SHIFT
     ldx.d $t0, $t0, $t1
+    beqz $t0, .Lrefill_fault
+    andi $t2, $t0, 0x40
+    beqz $t2, 1f
+    b .Lrefill_fault
+1:
+    bstrins.d $t0, $zero, (PAGE_SHIFT - 1), 0
     beqz $t0, .Lrefill_fault
     csrrd $t1, LOONGARCH_CSR_TLBRBADV
     bstrpick.d $t1, $t1, (PT_L1_SHIFT - 1), TLB_PAIR_SHIFT
@@ -94,7 +114,7 @@ tlb_refill:
     ld.d $t2, $t0, PT_ENTRY_SIZE
     csrwr $t1, LOONGARCH_CSR_TLBRELO0
     csrwr $t2, LOONGARCH_CSR_TLBRELO1
-    csrrd $t0, LOONGARCH_CSR_TLBREHI /* retain the fault VPPN. */
+    csrrd $t0, LOONGARCH_CSR_TLBREHI /* retain the fault VPPN */
     bstrins.d $t0, $zero, (LOONGARCH_TLBREHI_PS_BITS - 1), 0
     ori $t0, $t0, PAGE_SHIFT
     csrwr $t0, LOONGARCH_CSR_TLBREHI
@@ -104,7 +124,20 @@ tlb_refill:
     csrrd $t0, LOONGARCH_CSR_TLBRSAVE
     ertn
 .Lrefill_fault:
-    b .Lrefill_fault
+    /* install an invalid translation 
+       so ERTN retries into the normal 
+       page-fault path */
+    csrwr $zero, LOONGARCH_CSR_TLBRELO0
+    csrwr $zero, LOONGARCH_CSR_TLBRELO1
+    csrrd $t0, LOONGARCH_CSR_TLBREHI
+    bstrins.d $t0, $zero, (LOONGARCH_TLBREHI_PS_BITS - 1), 0
+    ori $t0, $t0, PAGE_SHIFT
+    csrwr $t0, LOONGARCH_CSR_TLBREHI
+    tlbfill
+    csrrd $t2, LOONGARCH_CSR_SAVE1
+    csrrd $t1, LOONGARCH_CSR_SAVE0
+    csrrd $t0, LOONGARCH_CSR_TLBRSAVE
+    ertn
 .size tlb_refill, . - tlb_refill
 
 .balign LOONGARCH_EXCEPTION_ALIGNMENT

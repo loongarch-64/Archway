@@ -14,8 +14,9 @@
 .hidden exception_entry
 .type exception_entry, @function
 exception_entry:
-    /* preserve the only needed gpr needed for building the interrupt frame */
-    csrwr   $t0, LOONGARCH_CSR_SAVE0
+    /* SAVE0 and SAVE1 belong to TLB refill
+       normal entry uses SAVE3. */
+    csrwr   $t0, LOONGARCH_CSR_SAVE3
 
     /* todo: fetch sp from somewhere else instead of using interrupted sp */
     addi.d  $sp, $sp, -INTERRUPT_FRAME_SIZE
@@ -54,7 +55,7 @@ exception_entry:
     st.d    $s6,   $sp, INTERRUPT_FRAME_GPR_OFFSET(29)
     st.d    $s7,   $sp, INTERRUPT_FRAME_GPR_OFFSET(30)
     st.d    $s8,   $sp, INTERRUPT_FRAME_GPR_OFFSET(31)
-    csrrd   $t0, LOONGARCH_CSR_SAVE0 /* interrupted $t0 */
+    csrrd   $t0, LOONGARCH_CSR_SAVE3 /* interrupted $t0 */
     st.d    $t0, $sp, INTERRUPT_FRAME_GPR_OFFSET(12)
     csrrd   $t0, LOONGARCH_CSR_ERA
     st.d    $t0, $sp, INTERRUPT_FRAME_ERA_OFFSET
