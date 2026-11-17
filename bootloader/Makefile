@@ -7,6 +7,8 @@ FIRMWARE      := ../firmware/QEMU_EFI.fd
 BUILD_DIR := build
 EFI_FILE  := $(BUILD_DIR)/Archway.efi
 EFI_BOOT  := $(BUILD_DIR)/esp/EFI/BOOT/BOOTLOONGARCH64.EFI
+UEFI_VARS := $(BUILD_DIR)/QEMU_VARS.fd
+UEFI_VARS_TEMPLATE := no-timeout-vars/QEMU_VARS.fd.gz
 SOURCES := $(wildcard src/*.c src/*.S)
 PICOEFI_C_SOURCES := $(wildcard $(PICOEFI_DIR)/src/loongarch64/*.c)
 PICOEFI_ASM_SOURCES := $(wildcard $(PICOEFI_DIR)/src/loongarch64/*.S)
@@ -127,9 +129,18 @@ $(BUILD_DIR)/esp/archway.elf: ../archway/build/archway.elf
 	mkdir -p $(dir $@)
 	cp $< $@
 
-run: $(EFI_BOOT) $(BUILD_DIR)/esp/archway.elf
+# Loongson QEMU_VARS.fd with the UEFI global Timeout variable set to zero.
+$(UEFI_VARS): $(UEFI_VARS_TEMPLATE)
+	mkdir -p $(dir $@)
+	gzip -dc $< > $@.tmp
+	mv $@.tmp $@
+
+run: $(EFI_BOOT) $(BUILD_DIR)/esp/archway.elf $(UEFI_VARS)
 	test -f $(FIRMWARE) || { echo "Run 'make download-required' from the repository root first."; exit 1; }
-	qemu-system-loongarch64 -m 2G -M virt -cpu la464 -bios $(FIRMWARE) -serial stdio -device ramfb -drive file=fat:rw:$(BUILD_DIR)/esp
+	qemu-system-loongarch64 -m 2G -M virt,pflash0=pflash0,pflash1=pflash1 -cpu la464 \
+		-drive if=none,id=pflash0,format=raw,readonly=on,file=$(FIRMWARE) \
+		-drive if=none,id=pflash1,format=raw,file=$(UEFI_VARS) \
+		-serial stdio -device ramfb -drive file=fat:rw:$(BUILD_DIR)/esp
 
 clean:
 	rm -rf $(BUILD_DIR)

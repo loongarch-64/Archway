@@ -6,6 +6,7 @@
  */
 
 #include <arch/hcf.h>
+#include <arch/interrupt_frame.h>
 #include <archway/boot_info.h>
 #include <drivers/serial/serial.h>
 #include <log.h>
@@ -13,6 +14,7 @@
 
 _Noreturn void
 kernel_main(const struct archway_boot_info *boot_info) {
+    exception_init();
     serial_init();
     kprintf("Hello, world!\n");
     mm_print_memory_map(boot_info);
@@ -23,5 +25,6 @@ kernel_main(const struct archway_boot_info *boot_info) {
 
     kprintf("page = %llX, page2 = %llX\n", page, page2);
 
+    __asm__ volatile("break 0");
     hcf();
 }
