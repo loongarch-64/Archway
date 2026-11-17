@@ -43,6 +43,7 @@ SECTIONS
     .bss ALIGN(PAGE_SIZE) (NOLOAD) : ALIGN(PAGE_SIZE)
     {
         __bss_start = .;
+        KEEP(*(.bss.stack))
         *(.bss .bss.* .sbss .sbss.*) *(COMMON)
         . = ALIGN(PAGE_SIZE);
         __bss_end = .;

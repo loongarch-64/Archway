@@ -11,10 +11,9 @@
 #include <efi.h>
 
 #define ARCHWAY_KERNEL_BASE UINT64_C(0xffffffff80000000)
-#define ARCHWAY_KERNEL_STACK_PAGES 16
-
+#define ARCHWAY_KERNEL_MAX_SIZE UINT64_C(0x10000000)
 struct kernel_image {
-    efi_physical_address physical, stack;
+    efi_physical_address physical;
     size_t pages;
     uint64_t entry;
     struct page_map mapping;

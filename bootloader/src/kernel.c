@@ -19,7 +19,7 @@ load_kernel(efi_handle image, struct efi_system_table *table, struct kernel_imag
     struct efi_file_protocol *root = NULL, *file = NULL;
     const struct elf_load_policy policy = {
         .virtual_base = ARCHWAY_KERNEL_BASE,
-        .max_size = UINT64_MAX - ARCHWAY_KERNEL_BASE + 1,
+        .max_size = ARCHWAY_KERNEL_MAX_SIZE,
         .required_alignment = EFI_PAGE_SIZE,
         .machine = ELF_MACHINE_LOONGARCH64,
         .allowed_segment_flags = ELF_PF_R | ELF_PF_W | ELF_PF_X,
@@ -84,13 +84,6 @@ load_kernel(efi_handle image, struct efi_system_table *table, struct kernel_imag
             goto done;
         }
     }
-    status = bs->allocate_pages(
-        EFI_ALLOCATE_ANY_PAGES, EFI_LOADER_DATA, ARCHWAY_KERNEL_STACK_PAGES, &kernel->stack
-    );
-    if (EFI_ERROR(status)) {
-        goto done;
-    }
-    memset((void *)(uintptr_t)kernel->stack, 0, ARCHWAY_KERNEL_STACK_PAGES * EFI_PAGE_SIZE);
     kernel->entry = elf.entry;
 done:
     if (file != NULL) {
@@ -115,9 +108,6 @@ done:
 void
 unload_kernel(struct efi_boot_services *bs, struct kernel_image *kernel) {
     page_map_destroy(bs, &kernel->mapping);
-    if (kernel->stack != 0) {
-        bs->free_pages(kernel->stack, ARCHWAY_KERNEL_STACK_PAGES);
-    }
     if (kernel->pages != 0) {
         bs->free_pages(kernel->physical, kernel->pages);
     }

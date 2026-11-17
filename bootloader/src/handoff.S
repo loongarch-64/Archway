@@ -15,8 +15,7 @@
 enter_kernel:
     /* a0 = page table root
        a1 = virtual entry
-       a2 = HHDM stack top
-       a3 = HHDM pointer to struct archway_boot_info
+       a2 = HHDM pointer to struct archway_boot_info
     */
     li.d $t0, LOONGARCH_CRMD_IE
     csrxchg $zero, $t0, LOONGARCH_CSR_CRMD
@@ -58,10 +57,8 @@ enter_kernel:
     jr $t0
 .Lhigh:
     csrwr $zero, LOONGARCH_CSR_DMW0
-    move $sp, $a2
-    move $fp, $zero
     move $ra, $zero
-    move $a0, $a3
+    move $a0, $a2
     jr $a1
 .size enter_kernel, . - enter_kernel
 

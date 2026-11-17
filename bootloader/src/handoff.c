@@ -15,7 +15,6 @@
 _Noreturn void enter_kernel(
     efi_physical_address root,
     uint64_t entry,
-    uint64_t stack,
     const struct archway_boot_info *boot_info
 );
 
@@ -209,7 +208,6 @@ boot_kernel(efi_handle image, struct efi_system_table *table) {
             enter_kernel(
                 kernel.mapping.root,
                 kernel.entry,
-                ARCHWAY_HHDM_BASE + kernel.stack + ARCHWAY_KERNEL_STACK_PAGES * EFI_PAGE_SIZE,
                 (const struct archway_boot_info *)(uintptr_t)
                     to_hhdm((efi_physical_address)(uintptr_t)boot_info)
             );
