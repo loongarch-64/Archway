@@ -5,9 +5,8 @@
  * @brief Bootloader's entry point.
  */
 
-#include <efi.h>
-
 #include "handoff.h"
+#include <efi.h>
 
 efi_status
 efi_main(efi_handle image_handle, struct efi_system_table *system_table) {

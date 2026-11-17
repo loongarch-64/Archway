@@ -7,8 +7,8 @@
 
 #ifndef ARCHWAY_PAGING_H
 #define ARCHWAY_PAGING_H
-#include <efi.h>
 #include "paging_layout.h"
+#include <efi.h>
 
 struct page_map {
     efi_physical_address root;

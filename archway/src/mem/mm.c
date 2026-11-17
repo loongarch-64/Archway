@@ -5,9 +5,73 @@
  * @brief Memory manager.
  */
 
-#include <mem/mm.h>
-#include <log.h>
 #include <arch/hcf.h>
+#include <archway/memory_layout.h>
+#include <log.h>
+#include <mem/mm.h>
+#include <mem/mm_internal.h>
+
+static struct free_range *free_list;
+
+static void
+add_free_range(uint64_t base, uint64_t pages) {
+    struct free_range *range = (void *)(uintptr_t)(ARCHWAY_HHDM_BASE + base);
+    range->base = base;
+    range->pages = pages;
+    range->next = free_list;
+    free_list = range;
+}
+
+void
+mm_init(const struct archway_boot_info *boot_info) {
+    free_list = 0;
+    if (boot_info == 0 || boot_info->memory_regions == 0) {
+        kprintf("mm: unavailable\n");
+        hcf();
+    }
+
+    for (uint64_t i = 0; i < boot_info->memory_region_count; ++i) {
+        const struct archway_memory_region *region = &boot_info->memory_regions[i];
+        if (region->type != ARCHWAY_MEMORY_USABLE || region->length == 0) {
+            continue;
+        }
+        if (region->length > UINT64_MAX - region->base) {
+            continue;
+        }
+        if (region->base > UINT64_MAX - (MM_PAGE_SIZE - 1)) {
+            continue;
+        }
+        uint64_t base = (region->base + MM_PAGE_SIZE - 1) & ~(MM_PAGE_SIZE - 1);
+        uint64_t end = (region->base + region->length) & ~(MM_PAGE_SIZE - 1);
+        if (base == 0) {
+            base = MM_PAGE_SIZE;
+        }
+        if (end > base) {
+            add_free_range(base, (end - base) / MM_PAGE_SIZE);
+        }
+    }
+}
+
+uint64_t
+alloc_page(void) {
+    struct free_range *range = free_list;
+    if (range == 0) {
+        return 0;
+    }
+    uint64_t physical = range->base + (--range->pages) * MM_PAGE_SIZE;
+    if (range->pages == 0) {
+        free_list = range->next;
+    }
+    return physical;
+}
+
+void
+dealloc_page(uint64_t physical) {
+    if (!physical)
+        return;
+
+    add_free_range(physical, 1);
+}
 
 static const char *
 memory_type_name(uint32_t type) {

@@ -8,10 +8,8 @@
 #include "handoff.h"
 #include "kernel.h"
 #include "string.h"
-
 #include <archway/boot_info.h>
 #include <archway/memory_layout.h>
-
 #include <stdbool.h>
 
 _Noreturn void enter_kernel(

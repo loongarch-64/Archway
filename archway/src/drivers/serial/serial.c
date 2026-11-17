@@ -5,8 +5,8 @@
  * @brief UART driver
  */
 
-#include <drivers/serial/serial.h>
 #include <archway/memory_layout.h>
+#include <drivers/serial/serial.h>
 #include <stdint.h>
 
 #define UART_BASE 0x1fe001e0

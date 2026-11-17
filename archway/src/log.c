@@ -5,10 +5,9 @@
  * @brief Just a printf.
  */
 
-#include <log.h>
 #include <drivers/serial/serial.h>
 #include <libc/stdio.h>
-
+#include <log.h>
 #include <stdarg.h>
 
 int

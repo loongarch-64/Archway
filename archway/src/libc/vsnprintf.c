@@ -10,12 +10,11 @@
  */
 
 #include <libc/stdio.h>
-
-#include <stdbool.h>
+#include <limits.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <limits.h>
 
 enum length_modifier {
     LENGTH_DEFAULT,

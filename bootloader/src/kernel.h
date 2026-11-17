@@ -7,8 +7,8 @@
 
 #ifndef ARCHWAY_KERNEL_H
 #define ARCHWAY_KERNEL_H
-#include <efi.h>
 #include "paging.h"
+#include <efi.h>
 
 #define ARCHWAY_KERNEL_BASE UINT64_C(0xffffffff80000000)
 #define ARCHWAY_KERNEL_STACK_PAGES 16

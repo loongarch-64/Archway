@@ -6,7 +6,6 @@
  */
 
 #include <lib/strings.h>
-
 #include <stdint.h>
 
 int
