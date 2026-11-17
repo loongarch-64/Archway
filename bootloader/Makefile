@@ -7,6 +7,14 @@ FIRMWARE      := ../firmware/QEMU_EFI.fd
 BUILD_DIR := build
 EFI_FILE  := $(BUILD_DIR)/Archway.efi
 EFI_BOOT  := $(BUILD_DIR)/esp/EFI/BOOT/BOOTLOONGARCH64.EFI
+SOURCES := $(wildcard src/*.c src/*.S)
+PICOEFI_C_SOURCES := $(wildcard $(PICOEFI_DIR)/src/loongarch64/*.c)
+PICOEFI_ASM_SOURCES := $(wildcard $(PICOEFI_DIR)/src/loongarch64/*.S)
+PICOEFI_C_OBJECTS := $(patsubst $(PICOEFI_DIR)/src/loongarch64/%.c,$(BUILD_DIR)/%.o,$(PICOEFI_C_SOURCES))
+PICOEFI_ASM_OBJECTS := $(patsubst $(PICOEFI_DIR)/src/loongarch64/%.S,$(BUILD_DIR)/%.o,$(PICOEFI_ASM_SOURCES))
+OBJECTS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(filter %.c,$(SOURCES))) \
+	$(patsubst src/%.S,$(BUILD_DIR)/%.o,$(filter-out src/handoff.S,$(filter %.S,$(SOURCES)))) \
+	$(BUILD_DIR)/transition.o $(PICOEFI_C_OBJECTS) $(PICOEFI_ASM_OBJECTS)
 
 CLANG        ?= clang
 LLD          ?= lld
@@ -77,7 +85,7 @@ $(BUILD_DIR)/copy.config: FORCE
 	@printf '%s\n' $(call quote,$(COPY_COMMAND)) > $@.tmp
 	@cmp -s $@.tmp $@ && rm $@.tmp || mv $@.tmp $@
 
-$(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o $(BUILD_DIR)/handoff.o $(BUILD_DIR)/transition.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/elf.o $(BUILD_DIR)/paging.o: $(BUILD_DIR)/compile.config
+$(OBJECTS): $(BUILD_DIR)/compile.config
 
 kernel:
 	$(MAKE) -C ../archway all
@@ -85,52 +93,28 @@ kernel:
 ../archway/build/archway.elf: kernel
 	@test -f $@
 
-$(BUILD_DIR)/paging.o: src/paging.c src/paging.h $(PICOEFI_STAMP) Makefile
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
+$(BUILD_DIR)/%.o: src/%.c Makefile $(PICOEFI_STAMP)
+	mkdir -p $(dir $@)
+	$(CC) $(EFI_CFLAGS) $(if $(filter string.o,$(@F)),-fno-lto) -MMD -MP -c $< -o $@
 
-$(BUILD_DIR)/elf.o: src/elf.c src/elf.h $(PICOEFI_STAMP) Makefile
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
-
-$(BUILD_DIR)/kernel.o: src/kernel.c src/kernel.h $(PICOEFI_STAMP) Makefile
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
-
-$(BUILD_DIR)/handoff.o: src/handoff.c $(PICOEFI_STAMP) Makefile
-	mkdir -p $(BUILD_DIR)
+$(BUILD_DIR)/%.o: src/%.S Makefile
+	mkdir -p $(dir $@)
 	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
 
 $(BUILD_DIR)/transition.o: src/handoff.S Makefile
-	mkdir -p $(BUILD_DIR)
+	mkdir -p $(dir $@)
 	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
 
-$(BUILD_DIR)/main.o: src/main.c $(PICOEFI_STAMP) Makefile
-	mkdir -p $(BUILD_DIR)
+$(PICOEFI_C_OBJECTS): $(BUILD_DIR)/%.o: $(PICOEFI_DIR)/src/loongarch64/%.c $(PICOEFI_STAMP) Makefile
+	mkdir -p $(dir $@)
 	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
 
-$(BUILD_DIR)/mm.o: src/mm.c src/strhlp.h $(PICOEFI_STAMP) Makefile
-	mkdir -p $(BUILD_DIR)
+$(PICOEFI_ASM_OBJECTS): $(BUILD_DIR)/%.o: $(PICOEFI_DIR)/src/loongarch64/%.S $(PICOEFI_STAMP) Makefile
+	mkdir -p $(dir $@)
 	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
 
-$(BUILD_DIR)/strhlp.o: src/strhlp.c src/strhlp.h Makefile
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
-
-$(BUILD_DIR)/string.o: src/string.c src/string.h Makefile
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) -fno-lto -MMD -MP -c $< -o $@
-
-$(BUILD_DIR)/entry.o: $(PICOEFI_DIR)/src/loongarch64/entry.S $(PICOEFI_STAMP) Makefile
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
-
-$(BUILD_DIR)/reloc.o: $(PICOEFI_DIR)/src/loongarch64/reloc.c $(PICOEFI_STAMP) Makefile
-	mkdir -p $(BUILD_DIR)
-	$(CC) $(EFI_CFLAGS) -MMD -MP -c $< -o $@
-
-$(BUILD_DIR)/Archway.elf: $(BUILD_DIR)/link.config $(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o $(BUILD_DIR)/handoff.o $(BUILD_DIR)/transition.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/elf.o $(BUILD_DIR)/paging.o $(PICOEFI_DIR)/src/loongarch64/link_script.lds Makefile
-	$(CC) $(EFI_LD_DRIVER_FLAGS) $(EFI_CFLAGS) $(EFI_LDFLAGS) $(BUILD_DIR)/main.o $(BUILD_DIR)/mm.o $(BUILD_DIR)/strhlp.o $(BUILD_DIR)/string.o $(BUILD_DIR)/entry.o $(BUILD_DIR)/reloc.o $(BUILD_DIR)/handoff.o $(BUILD_DIR)/transition.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/elf.o $(BUILD_DIR)/paging.o -o $@
+$(BUILD_DIR)/Archway.elf: $(BUILD_DIR)/link.config $(OBJECTS) $(PICOEFI_DIR)/src/loongarch64/link_script.lds Makefile
+	$(CC) $(EFI_LD_DRIVER_FLAGS) $(EFI_CFLAGS) $(EFI_LDFLAGS) $(OBJECTS) -o $@
 
 $(EFI_FILE): $(BUILD_DIR)/Archway.elf $(BUILD_DIR)/copy.config
 	$(OBJCOPY) -O binary $< $@

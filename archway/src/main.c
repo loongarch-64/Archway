@@ -5,12 +5,16 @@
  * @brief Archway entry point
  */
 
-#include "serial.h"
+#include <drivers/serial/serial.h>
+#include <mem/mm.h>
+#include <log.h>
+#include <archway/boot_info.h>
 
 _Noreturn void
-kernel_main(void) {
+kernel_main(const struct archway_boot_info *boot_info) {
     serial_init();
-    serial_write("Hello, world!\n");
+    kprintf("Hello, world!\n");
+    mm_print_memory_map(boot_info);
 
     for (;;) {
         __asm__ volatile("nop");

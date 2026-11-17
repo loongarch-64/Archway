@@ -7,7 +7,6 @@
 
 #include <efi.h>
 
-#include "mm.h"
 #include "handoff.h"
 
 efi_status
@@ -21,11 +20,6 @@ efi_main(efi_handle image_handle, struct efi_system_table *system_table) {
 
     status = system_table->con_out->output_string(system_table->con_out, L"Hheelllloo..\r\n");
 
-    if (EFI_ERROR(status)) {
-        return status;
-    }
-
-    status = print_memory_map(system_table);
     if (EFI_ERROR(status)) {
         return status;
     }

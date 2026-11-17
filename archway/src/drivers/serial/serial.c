@@ -5,7 +5,7 @@
  * @brief UART driver
  */
 
-#include "serial.h"
+#include <drivers/serial/serial.h>
 #include <archway/memory_layout.h>
 #include <stdint.h>
 
@@ -39,8 +39,8 @@ serial_init(void) {
     uart[UART_FCR] = UART_FCR_ENABLE | UART_FCR_CLEAR_RX | UART_FCR_CLEAR_TX;
 }
 
-static void
-serial_putc(char character) {
+void
+serial_write_char(char character) {
     while ((uart[UART_LSR] & UART_LSR_THR_EMPTY) == 0) {
         __asm__ volatile("nop");
     }
@@ -51,8 +51,8 @@ void
 serial_write(const char *text) {
     while (*text != '\0') {
         if (*text == '\n') {
-            serial_putc('\r');
+            serial_write_char('\r');
         }
-        serial_putc(*text++);
+        serial_write_char(*text++);
     }
 }

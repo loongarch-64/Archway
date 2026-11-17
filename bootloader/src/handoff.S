@@ -15,7 +15,8 @@
 enter_kernel:
     /* a0 = page table root
        a1 = virtual entry
-       a2 = HHDM stack top. 
+       a2 = HHDM stack top
+       a3 = HHDM pointer to struct archway_boot_info
     */
     li.d $t0, LOONGARCH_CRMD_IE
     csrxchg $zero, $t0, LOONGARCH_CSR_CRMD
@@ -23,9 +24,9 @@ enter_kernel:
     csrwr $zero, LOONGARCH_CSR_TCFG
     li.d $t0, (LOONGARCH_DMW_PLV0 | LOONGARCH_DMW_COHERENT) /* temporary cached identity mapping. */
     csrwr $t0, LOONGARCH_CSR_DMW0
-    li.d $t0, (ARCHWAY_HHDM_BASE | LOONGARCH_DMW_PLV0 | LOONGARCH_DMW_COHERENT) /* Cached PLV0 HHDM. */
+    li.d $t0, (ARCHWAY_HHDM_BASE | LOONGARCH_DMW_PLV0 | LOONGARCH_DMW_COHERENT) /* cached PLV0 HHDM. */
     csrwr $t0, LOONGARCH_CSR_DMW1
-    /* Strongly ordered, uncached PLV0 window for device MMIO. */
+    /* strongly ordered, uncached PLV0 window for device MMIO. */
     li.d $t0, (ARCHWAY_MMIO_BASE | LOONGARCH_DMW_PLV0)
     csrwr $t0, LOONGARCH_CSR_DMW2
     csrwr $zero, LOONGARCH_CSR_DMW3
@@ -36,13 +37,13 @@ enter_kernel:
     csrwr $a0, LOONGARCH_CSR_PGDH /* four-level kernel page table. */
     csrwr $zero, LOONGARCH_CSR_PWCL /* manual refill. software walker. */
     csrwr $zero, LOONGARCH_CSR_PWCH
-    li.d $t0, ARCHWAY_PAGE_SHIFT
+    li.d $t0, PAGE_SHIFT
     csrwr $t0, LOONGARCH_CSR_STLBPS /* 4 KiB STLB pages */
     la.local $t0, tlb_refill
-    bstrpick.d $t0, $t0, (ARCHWAY_PHYSICAL_BITS - 1), 0
+    bstrpick.d $t0, $t0, (PHYSICAL_BITS - 1), 0
     csrwr $t0, LOONGARCH_CSR_TLBRENTRY
     la.local $t0, bootstrap_fault
-    bstrpick.d $t0, $t0, (ARCHWAY_PHYSICAL_BITS - 1), 0
+    bstrpick.d $t0, $t0, (PHYSICAL_BITS - 1), 0
     li.d $t1, ARCHWAY_HHDM_BASE
     or $t0, $t0, $t1
     csrwr $t0, LOONGARCH_CSR_EENTRY
@@ -52,7 +53,7 @@ enter_kernel:
     li.d $t0, (LOONGARCH_CRMD_PG | LOONGARCH_CRMD_DATF_COHERENT | LOONGARCH_CRMD_DATM_COHERENT) /* PLV0. interrupts off. mapped addressing. */
     csrwr $t0, LOONGARCH_CSR_CRMD
     la.local $t0, .Lhigh
-    bstrpick.d $t0, $t0, (ARCHWAY_PHYSICAL_BITS - 1), 0
+    bstrpick.d $t0, $t0, (PHYSICAL_BITS - 1), 0
     or $t0, $t0, $t1
     jr $t0
 .Lhigh:
@@ -60,10 +61,11 @@ enter_kernel:
     move $sp, $a2
     move $fp, $zero
     move $ra, $zero
+    move $a0, $a3
     jr $a1
 .size enter_kernel, . - enter_kernel
 
-.balign ARCHWAY_PAGE_SIZE
+.balign PAGE_SIZE
 .type tlb_refill, @function
 tlb_refill:
     csrwr $t0, LOONGARCH_CSR_TLBRSAVE
@@ -73,31 +75,31 @@ tlb_refill:
     bge $t0, $zero, .Lrefill_fault
     csrrd $t0, LOONGARCH_CSR_PGDH
     csrrd $t1, LOONGARCH_CSR_TLBRBADV
-    bstrpick.d $t1, $t1, (ARCHWAY_PT_L3_SHIFT + ARCHWAY_PT_INDEX_BITS - 1), ARCHWAY_PT_L3_SHIFT
-    slli.d $t1, $t1, ARCHWAY_PT_ENTRY_SHIFT
+    bstrpick.d $t1, $t1, (PT_L3_SHIFT + PT_INDEX_BITS - 1), PT_L3_SHIFT
+    slli.d $t1, $t1, PT_ENTRY_SHIFT
     ldx.d $t0, $t0, $t1
     beqz $t0, .Lrefill_fault
     csrrd $t1, LOONGARCH_CSR_TLBRBADV
-    bstrpick.d $t1, $t1, (ARCHWAY_PT_L2_SHIFT + ARCHWAY_PT_INDEX_BITS - 1), ARCHWAY_PT_L2_SHIFT
-    slli.d $t1, $t1, ARCHWAY_PT_ENTRY_SHIFT
+    bstrpick.d $t1, $t1, (PT_L2_SHIFT + PT_INDEX_BITS - 1), PT_L2_SHIFT
+    slli.d $t1, $t1, PT_ENTRY_SHIFT
     ldx.d $t0, $t0, $t1
     beqz $t0, .Lrefill_fault
     csrrd $t1, LOONGARCH_CSR_TLBRBADV
-    bstrpick.d $t1, $t1, (ARCHWAY_PT_L1_SHIFT + ARCHWAY_PT_INDEX_BITS - 1), ARCHWAY_PT_L1_SHIFT
-    slli.d $t1, $t1, ARCHWAY_PT_ENTRY_SHIFT
+    bstrpick.d $t1, $t1, (PT_L1_SHIFT + PT_INDEX_BITS - 1), PT_L1_SHIFT
+    slli.d $t1, $t1, PT_ENTRY_SHIFT
     ldx.d $t0, $t0, $t1
     beqz $t0, .Lrefill_fault
     csrrd $t1, LOONGARCH_CSR_TLBRBADV
-    bstrpick.d $t1, $t1, (ARCHWAY_PT_L1_SHIFT - 1), ARCHWAY_TLB_PAIR_SHIFT
-    slli.d $t1, $t1, ARCHWAY_TLB_PAIR_ENTRY_SHIFT
+    bstrpick.d $t1, $t1, (PT_L1_SHIFT - 1), TLB_PAIR_SHIFT
+    slli.d $t1, $t1, TLB_PAIR_ENTRY_SHIFT
     add.d $t0, $t0, $t1
     ld.d $t1, $t0, 0
-    ld.d $t2, $t0, ARCHWAY_PT_ENTRY_SIZE
+    ld.d $t2, $t0, PT_ENTRY_SIZE
     csrwr $t1, LOONGARCH_CSR_TLBRELO0
     csrwr $t2, LOONGARCH_CSR_TLBRELO1
     csrrd $t0, LOONGARCH_CSR_TLBREHI /* retain the fault VPPN. */
     bstrins.d $t0, $zero, (LOONGARCH_TLBREHI_PS_BITS - 1), 0
-    ori $t0, $t0, ARCHWAY_PAGE_SHIFT
+    ori $t0, $t0, PAGE_SHIFT
     csrwr $t0, LOONGARCH_CSR_TLBREHI
     tlbfill
     csrrd $t2, LOONGARCH_CSR_SAVE1

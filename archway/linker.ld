@@ -5,6 +5,10 @@
  * @brief do i have to explain?
  */
 
+#define PF_X 1
+#define PF_W 2
+#define PF_R 4
+
 OUTPUT_ARCH(loongarch)
 ENTRY(_start)
 
@@ -12,8 +16,8 @@ PAGE_SIZE = 0x1000;
 
 PHDRS
 {
-    text PT_LOAD FLAGS(5);
-    data PT_LOAD FLAGS(6);
+    text PT_LOAD FLAGS(PF_R | PF_X);
+    data PT_LOAD FLAGS(PF_R | PF_W);
 }
 
 SECTIONS

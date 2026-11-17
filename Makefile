@@ -13,7 +13,7 @@ PICOEFI_URL     := https://codeload.github.com/PicoEFI/PicoEFI/tar.gz/$(PICOEFI_
 PICOEFI_STAMP   := $(PICOEFI_DIR)/.downloaded
 
 CLANG_FORMAT ?= clang-format
-FORMAT_FILES := $(wildcard archway/src/*.c archway/src/*.h bootloader/src/*.c bootloader/src/*.h include/archway/*.h)
+FORMAT_FILES := $(shell find archway/src -type f \( -name '*.c' -o -name '*.h' \)) $(wildcard bootloader/src/*.c bootloader/src/*.h include/archway/*.h)
 
 .PHONY: all download-required run clean format format-check
 
@@ -22,6 +22,10 @@ format:
 
 format-check:
 	$(CLANG_FORMAT) --dry-run --Werror $(FORMAT_FILES)
+	@if grep -R -n -E '^[[:space:]]*#[[:space:]]*include[[:space:]]*"' archway/src; then \
+		echo 'kernel includes must use angle brackets' >&2; \
+		exit 1; \
+	fi
 
 all: $(PICOEFI_STAMP)
 	$(MAKE) -C archway all
