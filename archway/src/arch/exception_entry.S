@@ -9,7 +9,7 @@
 #include "interrupt_frame.h"
 
 .section .text, "ax", @progbits
-.balign 64
+.balign 4096
 .global exception_entry
 .hidden exception_entry
 .type exception_entry, @function

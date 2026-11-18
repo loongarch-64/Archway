@@ -27,6 +27,7 @@ struct interrupt_frame {
 };
 
 void exception_init(void);
+void interrupt_enable(void);
 void on_exception(struct interrupt_frame *frame);
 #endif
 

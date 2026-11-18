@@ -16,3 +16,12 @@ exception_init:
     csrwr   $t0, LOONGARCH_CSR_EENTRY
     jirl    $zero, $ra, 0
 .size exception_init, . - exception_init
+
+.global interrupt_enable
+.type interrupt_enable, @function
+interrupt_enable:
+    li.w    $t0, LOONGARCH_CRMD_IE
+    move    $t1, $t0
+    csrxchg $t1, $t0, LOONGARCH_CSR_CRMD
+    jr      $ra
+.size interrupt_enable, . - interrupt_enable

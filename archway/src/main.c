@@ -8,6 +8,7 @@
 #include <arch/hcf.h>
 #include <arch/interrupt_frame.h>
 #include <arch/paging.h>
+#include <arch/timer.h>
 #include <archway/boot_info.h>
 #include <drivers/serial/serial.h>
 #include <log.h>
@@ -34,5 +35,21 @@ kernel_main(const struct archway_boot_info *boot_info) {
     kprintf("page = %llX, page2 = %llX\n", page, page2);
 
     __asm__ volatile("break 0");
+
+    if (!timer_start_periodic(1000000)) {
+        kprintf("timer: unable to start periodic timer\n");
+        hcf();
+    }
+
+    kprintf("timer: periodic mode enabled\n");
+    interrupt_enable();
+    while (timer_interrupt_count() == 0) {
+        __asm__ volatile("idle 0" ::: "memory");
+    }
+
+    uint64_t time_now_us = timer_now_us();
+    kprintf("time since cpu reset: %llu.%06u s\n", (unsigned long long)(time_now_us / 1000000),
+            (unsigned int)(time_now_us % 1000000));
+
     hcf();
 }

@@ -8,6 +8,7 @@
 #include <arch/hcf.h>
 #include <arch/interrupt_frame.h>
 #include <arch/loongarch.h>
+#include <arch/timer.h>
 #include <log.h>
 
 #define LOONGARCH_ESTAT_ECODE_SHIFT 16
@@ -18,6 +19,11 @@
 void
 on_exception(struct interrupt_frame *frame) {
     uint64_t ecode = (frame->estat >> LOONGARCH_ESTAT_ECODE_SHIFT) & LOONGARCH_ESTAT_ECODE_MASK;
+    if (ecode == 0 && (frame->estat & LOONGARCH_INT_TIMER) != 0) {
+        timer_handle_interrupt();
+        return;
+    }
+
     uint64_t esubcode =
         (frame->estat >> LOONGARCH_ESTAT_ESUBCODE_SHIFT) & LOONGARCH_ESTAT_ESUBCODE_MASK;
 
