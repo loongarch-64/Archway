@@ -7,6 +7,7 @@
 
 #include <archway/memory_layout.h>
 #include <mem/mm.h>
+#include <sync/spinlock.h>
 #include <vm/reserve.h>
 
 /* AVL nodes track the preceding gap 
@@ -56,6 +57,8 @@ static struct vm_arena arenas[] = {
 
 /* only pages with room for another reservation are linked here */
 static struct reservation_page *available_pages;
+/* covers the arenas and their shared reservation-record pool */
+static spinlock_t reservation_lock = SPINLOCK_INITIALIZER;
 
 static void
 link_available_page(struct reservation_page *page) {
@@ -263,14 +266,8 @@ round_reservation_size(size_t length) {
     return (length + MM_PAGE_SIZE - 1) & ~(MM_PAGE_SIZE - 1);
 }
 
-void *
-vm_reserve(enum vm_region region, size_t length) {
-    uint64_t size = round_reservation_size(length);
-    if (size == 0 || (unsigned)region >= sizeof(arenas) / sizeof(arenas[0])) {
-        return NULL;
-    }
-
-    struct vm_arena *arena = &arenas[region];
+static void *
+reserve_from_arena(struct vm_arena *arena, uint64_t size) {
     struct vm_reservation *next = find_first_fit(arena->root, size);
     uint64_t offset = next == NULL ? arena->tail : next->offset - next->gap_before;
     if (arena->size - offset < size) {
@@ -293,6 +290,19 @@ vm_reserve(enum vm_region region, size_t length) {
     *record = (struct vm_reservation){.offset = offset, .size = size, .height = 1};
     arena->root = insert(arena->root, record);
     return (void *)(uintptr_t)(arena->base + offset);
+}
+
+void *
+vm_reserve(enum vm_region region, size_t length) {
+    uint64_t size = round_reservation_size(length);
+    if (size == 0 || (unsigned)region >= sizeof(arenas) / sizeof(arenas[0])) {
+        return NULL;
+    }
+
+    spin_lock(&reservation_lock);
+    void *base = reserve_from_arena(&arenas[region], size);
+    spin_unlock(&reservation_lock);
+    return base;
 }
 
 static bool
@@ -336,7 +346,10 @@ vm_release(void *base, size_t length) {
     for (size_t i = 0; i < sizeof(arenas) / sizeof(arenas[0]); ++i) {
         uint64_t offset = address - arenas[i].base;
         if (offset < arenas[i].size) {
-            return release_from_arena(&arenas[i], offset, size);
+            spin_lock(&reservation_lock);
+            bool released = release_from_arena(&arenas[i], offset, size);
+            spin_unlock(&reservation_lock);
+            return released;
         }
     }
     return false;

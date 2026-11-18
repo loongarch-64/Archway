@@ -11,6 +11,7 @@
 #include <mem/mm.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <sync/spinlock.h>
 #include <vm/map.h>
 #include <vm/reserve.h>
 
@@ -49,6 +50,8 @@ struct slab {
     size_t used;
 };
 
+/* slab operations may take VM locks and the physical allocator lock */
+static spinlock_t slab_lock = SPINLOCK_INITIALIZER;
 static struct slab_region *available_regions;
 static struct slab_class slab_classes[] = {
     {.slot_size = 16},
@@ -279,7 +282,10 @@ kmalloc(size_t size) {
     }
     for (size_t i = 0; i < sizeof(slab_classes) / sizeof(slab_classes[0]); ++i) {
         if (size <= slab_classes[i].slot_size) {
-            return allocate_slot(&slab_classes[i]);
+            spin_lock(&slab_lock);
+            void *slot = allocate_slot(&slab_classes[i]);
+            spin_unlock(&slab_lock);
+            return slot;
         }
     }
     return allocate_large(size);
@@ -294,7 +300,9 @@ kfree(void *pointer) {
     const struct heap_page *page = (void *)base;
     size_t mapped_size = page->mapped_size;
     if (mapped_size == 0) {
+        spin_lock(&slab_lock);
         release_slot(base, pointer);
+        spin_unlock(&slab_lock);
     } else {
         release_large(base, mapped_size, mapped_size);
     }

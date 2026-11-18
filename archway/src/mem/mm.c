@@ -10,7 +10,9 @@
 #include <log.h>
 #include <mem/mm.h>
 #include <mem/mm_internal.h>
+#include <sync/spinlock.h>
 
+static spinlock_t free_list_lock = SPINLOCK_INITIALIZER;
 static struct free_range *free_list;
 
 static void
@@ -54,14 +56,17 @@ mm_init(const struct archway_boot_info *boot_info) {
 
 uint64_t
 alloc_page(void) {
+    spin_lock(&free_list_lock);
     struct free_range *range = free_list;
     if (range == 0) {
+        spin_unlock(&free_list_lock);
         return 0;
     }
     uint64_t physical = range->base + (--range->pages) * MM_PAGE_SIZE;
     if (range->pages == 0) {
         free_list = range->next;
     }
+    spin_unlock(&free_list_lock);
     return physical;
 }
 
@@ -70,7 +75,9 @@ dealloc_page(uint64_t physical) {
     if (!physical)
         return;
 
+    spin_lock(&free_list_lock);
     add_free_range(physical, 1);
+    spin_unlock(&free_list_lock);
 }
 
 static const char *

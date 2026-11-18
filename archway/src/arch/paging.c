@@ -10,6 +10,7 @@
 #include <mem/mm.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <sync/spinlock.h>
 
 #define PAGE_SHIFT 12u
 #define PAGE_SIZE (UINT64_C(1) << PAGE_SHIFT)
@@ -33,6 +34,8 @@ extern void paging_install_refill(uint64_t physical_address);
 extern char paging_refill_entry[];
 extern char __kernel_start[];
 
+/* Serializes C page-table writers. The assembly refill handler walks locklessly. */
+static spinlock_t page_table_lock = SPINLOCK_INITIALIZER;
 static bool low_root_owned;
 
 static uint64_t *table_from_physical(uint64_t physical);
@@ -109,8 +112,8 @@ validate_page(uint64_t virtual_address, uint64_t physical_address) {
     return PAGING_OK;
 }
 
-enum paging_result
-paging_map_page(uint64_t virtual_address, uint64_t physical_address, enum paging_flags flags) {
+static enum paging_result
+map_page_locked(uint64_t virtual_address, uint64_t physical_address, enum paging_flags flags) {
     enum paging_result result = validate_page(virtual_address, physical_address);
     if (result != PAGING_OK) {
         return result;
@@ -213,8 +216,8 @@ paging_map_page(uint64_t virtual_address, uint64_t physical_address, enum paging
     return PAGING_OK;
 }
 
-enum paging_result
-paging_unmap_page(uint64_t virtual_address, uint64_t *physical_address) {
+static enum paging_result
+unmap_page_locked(uint64_t virtual_address, uint64_t *physical_address) {
     if ((virtual_address & PAGE_MASK) != 0 || !is_canonical(virtual_address)) {
         return PAGING_INVALID_ARGUMENT;
     }
@@ -313,4 +316,20 @@ paging_unmap_page(uint64_t virtual_address, uint64_t *physical_address) {
         *physical_address = entry & PHYSICAL_ADDRESS_MASK;
     }
     return PAGING_OK;
+}
+
+enum paging_result
+paging_map_page(uint64_t virtual_address, uint64_t physical_address, enum paging_flags flags) {
+    spin_lock(&page_table_lock);
+    enum paging_result result = map_page_locked(virtual_address, physical_address, flags);
+    spin_unlock(&page_table_lock);
+    return result;
+}
+
+enum paging_result
+paging_unmap_page(uint64_t virtual_address, uint64_t *physical_address) {
+    spin_lock(&page_table_lock);
+    enum paging_result result = unmap_page_locked(virtual_address, physical_address);
+    spin_unlock(&page_table_lock);
+    return result;
 }

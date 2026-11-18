@@ -9,5 +9,6 @@
 #define ARCHWAY_LOG_H
 
 int kprintf(const char *format, ...);
+int kprintf_exception(const char *format, ...);
 
 #endif

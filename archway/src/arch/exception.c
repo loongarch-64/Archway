@@ -27,65 +27,65 @@ on_exception(struct interrupt_frame *frame) {
     uint64_t esubcode =
         (frame->estat >> LOONGARCH_ESTAT_ESUBCODE_SHIFT) & LOONGARCH_ESTAT_ESUBCODE_MASK;
 
-    kprintf("!!! Exception !!!\n");
-    kprintf("ECODE=%02llX ESUBCODE=%03llX\n", ecode, esubcode);
-    kprintf(
+    kprintf_exception("!!! Exception !!!\n");
+    kprintf_exception("ECODE=%02llX ESUBCODE=%03llX\n", ecode, esubcode);
+    kprintf_exception(
         "ERA=%016llX BADV=%016llX PRMD=%016llX ESTAT=%016llX\n",
         frame->era,
         frame->badv,
         frame->prmd,
         frame->estat
     );
-    kprintf(
+    kprintf_exception(
         "ZERO=%016llX RA=%016llX TP=%016llX SP=%016llX\n",
         frame->gpr[GPR_ZERO],
         frame->gpr[GPR_RA],
         frame->gpr[GPR_TP],
         frame->gpr[GPR_SP]
     );
-    kprintf(
+    kprintf_exception(
         "A0=%016llX A1=%016llX A2=%016llX A3=%016llX\n",
         frame->gpr[GPR_A0],
         frame->gpr[GPR_A1],
         frame->gpr[GPR_A2],
         frame->gpr[GPR_A3]
     );
-    kprintf(
+    kprintf_exception(
         "A4=%016llX A5=%016llX A6=%016llX A7=%016llX\n",
         frame->gpr[GPR_A4],
         frame->gpr[GPR_A5],
         frame->gpr[GPR_A6],
         frame->gpr[GPR_A7]
     );
-    kprintf(
+    kprintf_exception(
         "T0=%016llX T1=%016llX T2=%016llX T3=%016llX\n",
         frame->gpr[GPR_T0],
         frame->gpr[GPR_T1],
         frame->gpr[GPR_T2],
         frame->gpr[GPR_T3]
     );
-    kprintf(
+    kprintf_exception(
         "T4=%016llX T5=%016llX T6=%016llX T7=%016llX\n",
         frame->gpr[GPR_T4],
         frame->gpr[GPR_T5],
         frame->gpr[GPR_T6],
         frame->gpr[GPR_T7]
     );
-    kprintf(
+    kprintf_exception(
         "T8=%016llX R21=%016llX FP=%016llX S0=%016llX\n",
         frame->gpr[GPR_T8],
         frame->gpr[GPR_R21],
         frame->gpr[GPR_FP],
         frame->gpr[GPR_S0]
     );
-    kprintf(
+    kprintf_exception(
         "S1=%016llX S2=%016llX S3=%016llX S4=%016llX\n",
         frame->gpr[GPR_S1],
         frame->gpr[GPR_S2],
         frame->gpr[GPR_S3],
         frame->gpr[GPR_S4]
     );
-    kprintf(
+    kprintf_exception(
         "S5=%016llX S6=%016llX S7=%016llX S8=%016llX\n",
         frame->gpr[GPR_S5],
         frame->gpr[GPR_S6],
