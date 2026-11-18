@@ -25,7 +25,10 @@ enum paging_result {
     PAGING_UNSUPPORTED, /* encountered an entry format this page-table walker cannot handle */
 };
 
-/* Installs the kernel refill handler using the physical load base. PGDL is allocated on demand. */
+/* installs the kernel refill handler using 
+   the physical load base. 
+   
+   PGDL is allocated on demand. */
 enum paging_result paging_init(uint64_t kernel_physical_base);
 
 /* returns the active PGDL or PGDH root 
@@ -34,6 +37,8 @@ uint64_t paging_root_physical(uint64_t virtual_address);
 
 enum paging_result
 paging_map_page(uint64_t virtual_address, uint64_t physical_address, enum paging_flags flags);
-enum paging_result paging_unmap_page(uint64_t virtual_address);
+/* on success it may optionally return 
+   the physical address of the unmapped page */
+enum paging_result paging_unmap_page(uint64_t virtual_address, uint64_t *physical_address);
 
 #endif /* ARCHWAY_ARCH_PAGING_H */

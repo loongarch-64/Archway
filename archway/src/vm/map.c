@@ -67,6 +67,11 @@ vm_map_range(
 }
 
 enum vm_map_result
+vm_unmap_page(uint64_t virtual_address, uint64_t *physical_address) {
+    return translate_paging_result(paging_unmap_page(virtual_address, physical_address));
+}
+
+enum vm_map_result
 vm_unmap_range(uint64_t virtual_address, size_t size) {
     if (size == 0 || ((virtual_address | size) & VM_PAGE_MASK) != 0
         || (uint64_t)(size - 1) > UINT64_MAX - virtual_address) {
@@ -74,9 +79,9 @@ vm_unmap_range(uint64_t virtual_address, size_t size) {
     }
 
     for (uint64_t offset = 0; offset < (uint64_t)size; offset += VM_PAGE_SIZE) {
-        enum paging_result result = paging_unmap_page(virtual_address + offset);
-        if (result != PAGING_OK) {
-            return translate_paging_result(result);
+        enum vm_map_result result = vm_unmap_page(virtual_address + offset, NULL);
+        if (result != VM_MAP_OK) {
+            return result;
         }
     }
     return VM_MAP_OK;

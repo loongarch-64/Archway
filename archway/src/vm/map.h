@@ -29,6 +29,10 @@ enum vm_map_result {
 enum vm_map_result vm_map_range(
     uint64_t virtual_address, uint64_t physical_address, size_t size, enum vm_map_flags flags
 );
+
+/* on success it may optionally return 
+   the physical address of the unmapped page */
+enum vm_map_result vm_unmap_page(uint64_t virtual_address, uint64_t *physical_address);
 enum vm_map_result vm_unmap_range(uint64_t virtual_address, size_t size);
 
 #endif /* ARCHWAY_VM_MAP_H */

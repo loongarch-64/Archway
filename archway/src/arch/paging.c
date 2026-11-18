@@ -214,7 +214,7 @@ paging_map_page(uint64_t virtual_address, uint64_t physical_address, enum paging
 }
 
 enum paging_result
-paging_unmap_page(uint64_t virtual_address) {
+paging_unmap_page(uint64_t virtual_address, uint64_t *physical_address) {
     if ((virtual_address & PAGE_MASK) != 0 || !is_canonical(virtual_address)) {
         return PAGING_INVALID_ARGUMENT;
     }
@@ -249,7 +249,8 @@ paging_unmap_page(uint64_t virtual_address) {
     }
 
     size_t index = (size_t)((virtual_address >> PAGE_SHIFT) & PT_INDEX_MASK);
-    if ((table[index] & PTE_VALID) == 0) {
+    uint64_t entry = table[index];
+    if ((entry & PTE_VALID) == 0) {
         return PAGING_CONFLICT;
     }
     table[index] = PTE_GLOBAL;
@@ -307,6 +308,9 @@ paging_unmap_page(uint64_t virtual_address) {
             low_root_owned = false;
             dealloc_page(root_physical);
         }
+    }
+    if (physical_address != NULL) {
+        *physical_address = entry & PHYSICAL_ADDRESS_MASK;
     }
     return PAGING_OK;
 }

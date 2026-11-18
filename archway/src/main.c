@@ -12,6 +12,7 @@
 #include <archway/boot_info.h>
 #include <drivers/serial/serial.h>
 #include <log.h>
+#include <mem/heap.h>
 #include <mem/mm.h>
 
 _Noreturn void
@@ -34,8 +35,6 @@ kernel_main(const struct archway_boot_info *boot_info) {
 
     kprintf("page = %llX, page2 = %llX\n", page, page2);
 
-    __asm__ volatile("break 0");
-
     if (!timer_start_periodic(1000000)) {
         kprintf("timer: unable to start periodic timer\n");
         hcf();
@@ -48,8 +47,16 @@ kernel_main(const struct archway_boot_info *boot_info) {
     }
 
     uint64_t time_now_us = timer_now_us();
-    kprintf("time since cpu reset: %llu.%06u s\n", (unsigned long long)(time_now_us / 1000000),
-            (unsigned int)(time_now_us % 1000000));
+    kprintf(
+        "time since cpu reset: %llu.%06u s\n",
+        (unsigned long long)(time_now_us / 1000000),
+        (unsigned int)(time_now_us % 1000000)
+    );
+
+    void *p1 = kmalloc(623);
+    void *p2 = kmalloc(76);
+
+    kprintf("p1=%p p2=%p\n", p1, p2);
 
     hcf();
 }
